@@ -34,35 +34,38 @@ Create and activate a virtual python environements dedicated to 3D-XRD
 
 Install required libraries
 > `pip install fabio`
+>
 > `pip install silx`
+>
 > `pip install numpy`
 
 Download the TIMEleSS Viewer by typing
 > `git clone https://github.com/FABLE-3DXRD/TIMEleSS_Viewer.git`
 
 Move into the TIMEleSS_Viewer project
-	`cd TIMEleSS_Viewer`
+> `cd TIMEleSS_Viewer`
 
 Build the project
-	pip install .
+> `pip install .`
 
 To upgrade a previous install
-	move into the folder where you downloaded the TIMEleSS Viewer, and then
-	git pull
-	pip install --upgrade  --no-deps --force-reinstall
+> move into the folder where you downloaded the TIMEleSS Viewer, and then
+>
+> 'git pull'
+>
+> 'pip install --upgrade  --no-deps --force-reinstall'
 
 Good luck!
 
 ## Usage instructions
 
-Type "timelessViewer" in the command line
-
-Hold the control key and select the first EDF file you want to plot
-Hold the shift key and select the last EDF file
+Type `timelessViewer` in the command line
+ - Hold the control key and select the first EDF file you want to plot
+ - Hold the shift key and select the last EDF file
 
 The GUI should come up
 
 The GUI has all the usual silx interface
 
-Specific 3D-XRD functions are in the "3D-XRD extra" menu
+Specific 3D-XRD functions are in the `3D-XRD extra` menu
 
