@@ -237,6 +237,65 @@ def on_frame_changed(frame_index):
         # Remove all "peaks" item
         plot_widget.remove(kind='curve')
 
+def image_flipping(img, o11, o12, o21, o22, flipdir='forward'):
+    """
+    Code copied from that of Fabian at https://github.com/FABLE-3DXRD/fabian/blob/master/Fabian/detector.py
+    Call to this function from Fabian adds -1 in front of all components: https://github.com/FABLE-3DXRD/fabian/blob/master/Fabian/appWin.py#L1931
+    Not needed here (flipping done when designing UI)
+
+    Transforming image matrix according to the
+    detector orientation matrix given the
+    output image  matrix will have coordinates (dety,detz)
+    as defined in
+    "3DXRD and TotalCryst Geometry - Version 1.0.2" by
+    H.F. Poulsen, S. Schmidt, J. Wright, H.O. Sorensen
+
+    Detector_orientation: [[o11,o12],[o21,o22]]
+
+           [[o11,o12],[o21,o22]]
+           [[  1,  0],[  0,  1]]  => nothing
+           [[ -1,  0],[  0,  1]]  => flipud
+           [[  1,  0],[  0, -1]]  => fliplr
+           [[ -1,  0],[  0, -1]]  => flipud fliplr
+
+           [[  0,  1],[  1,  0]]  => transpose
+           [[  0, -1],[ -1,  0]]  => transpose fliplr flipud
+           [[  0, -1],[  1,  0]]  => transpose flipud
+           [[  0,  1],[ -1,  0]]  => transpose flipud
+
+    flipdir can takes the values forward or inverse
+    forward: raw image -> 3DXRD standard
+    inverse: 3DXRD standard -> raw image
+
+    """
+
+    if abs(o11) == 1:
+        if (abs(o22) != 1) or (o12 != 0) or (o21 != 0):
+            raise ValueError('detector orientation makes no sense 1')
+#        img = n.transpose(img) # to get A[i,j] be standard A[dety,detz]
+        if o11 == -1:
+            img = n.flipud(img)
+        if o22 == -1:
+            img = n.fliplr(img)
+        return img
+    if abs(o12) == 1:
+        if abs(o21) != 1 or (o11 != 0) or (o22 != 0):
+            raise ValueError('detector orientation makes no sense 2')
+        #transpose not needed since the matrix is transp from scratch
+        img = n.transpose(img) # make transpose
+
+        if o12 == -1:
+            if flipdir == 'forward':
+                img = n.flipud(img)
+            else:
+                img = n.fliplr(img)
+        if o21 == -1:
+            if flipdir == 'forward':
+                img = n.fliplr(img)
+            else:
+                img = n.flipud(img)
+        return img
+    raise ValueError('detector orientation makes no sense 3')
 
 def main(argv):
     """
