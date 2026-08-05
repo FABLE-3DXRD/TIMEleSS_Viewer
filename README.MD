@@ -51,9 +51,9 @@ Build the project
 To upgrade a previous install
 > move into the folder where you downloaded the TIMEleSS Viewer, and then
 >
-> 'git pull'
+> `git pull`
 >
-> 'pip install --upgrade  --no-deps --force-reinstall'
+> `pip install --upgrade  --no-deps --force-reinstall`
 
 Good luck!
 
