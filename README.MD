@@ -28,19 +28,20 @@ Descriptions of TIMEleSS-tools: http://multigrain.texture.rocks/
 ## Installation instructions
 
 Create and activate a virtual python environements dedicated to 3D-XRD
-	A virtual environment in Python is an isolated environment on your computer, where you can run and test your Python projects, without interfering with the main python installation
-	See instructions at https://www.w3schools.com/python/python_virtualenv.asp and many other places online
+> A virtual environment in Python is an isolated environment on your computer, where you can run and test your Python projects, without interfering with the main python installation
+>
+> See instructions at https://www.w3schools.com/python/python_virtualenv.asp and many other places online
 
 Install required libraries
-	pip install fabio
-	pip install silx
-	pip install numpy
+> `pip install fabio`
+> `pip install silx`
+> `pip install numpy`
 
 Download the TIMEleSS Viewer by typing
-	git clone https://github.com/FABLE-3DXRD/TIMEleSS_Viewer.git
+> `git clone https://github.com/FABLE-3DXRD/TIMEleSS_Viewer.git`
 
 Move into the TIMEleSS_Viewer project
-	cd TIMEleSS_Viewer
+	`cd TIMEleSS_Viewer`
 
 Build the project
 	pip install .
