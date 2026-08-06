@@ -236,6 +236,7 @@ def on_frame_changed(frame_index):
     """
     global main_pars
     global fileName
+    global rawdata
     #print(f"The active frame has changed to: {frame_index}")
     # Extract the underlying PlotWidget
     plot_widget = sv.getPlotWidget()
@@ -246,25 +247,40 @@ def on_frame_changed(frame_index):
         # Add relevant peaks
         om = omega[frame_index]
         legendindex = 0
+        # Need to apply the flip matrix to the peak position... Not sure on how to do that.
+        # Brutal a stupid solution
+        # Create an empy image, will set to 1 when there is a peak
+        [dim0, dim1, dim2] = rawdata.shape
+        peakpos = numpy.zeros([1,dim1,dim2],dtype=numpy.int8)
         for peak in peaks["peakinfo"] :
             if ((peak[peaks["Min_o"]] <= om) and (om <= peak[peaks["Max_o"]])):
-                cx, cy  = peak[peaks["detz"]], peak[peaks["dety"]]
-                # print("Found one at %d %d" % (cx, cy))
-                # Define geometry
-                t = numpy.linspace(0, 2 * numpy.pi, 200)
-                x = cx + main_pars["peakcircleradius"] * numpy.cos(t)
-                y = cy + main_pars["peakcircleradius"] * numpy.sin(t)
-                # print(min(x), max(x), min(y), max(y))
-                # Add via the native addCurve method
-                plot_widget.addCurve(
-                    x = x,
-                    y = y,
-                    color='red',
-                    legend = 'peak%d' % legendindex,
-                    linestyle='-',
-                    linewidth=1
-                )
-                legendindex += 1
+                cy = numpy.rint(peak[peaks["detz"]]).astype(int)
+                cx = numpy.rint(peak[peaks["dety"]]).astype(int)
+                # print(cx,cy)
+                peakpos[0,cx,cy] = 1
+        # Apply image flipping to locate the peaks on flipped images
+        peakpos = image_flipping(peakpos,main_pars["o11"],main_pars["o12"],main_pars["o21"],main_pars["o22"])
+        # Search peaks and plot a circle
+        drawpeaks = zip(*numpy.where(peakpos == 1))
+        # print(drawpeaks)
+        for p,cx,cy in drawpeaks:
+            # print(p,cx,cy)
+            # print("Found one at %d %d" % (cx, cy))
+            # Define geometry
+            t = numpy.linspace(0, 2 * numpy.pi, 200)
+            x = cy + main_pars["peakcircleradius"] * numpy.cos(t)
+            y = cx + main_pars["peakcircleradius"] * numpy.sin(t)
+            # print(min(x), max(x), min(y), max(y))
+            # Add via the native addCurve method
+            plot_widget.addCurve(
+                x = x,
+                y = y,
+                color='red',
+                legend = 'peak%d' % legendindex,
+                linestyle='-',
+                linewidth=1
+            )
+            legendindex += 1
     else:
         # Remove all "peaks" item
         plot_widget.remove(kind='curve')
