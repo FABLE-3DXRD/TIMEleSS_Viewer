@@ -45,8 +45,10 @@ def showAboutWindow():
 def changedatafiles():
     """
     Called when the user selects a menu to change the input data files
+
+    Reads data and calls for a replot
     """
-    global main_pars, rawdata, omega
+    global rawdata, omega
 
     filenames, _ = qt.QFileDialog.getOpenFileNames(
         None,
@@ -62,23 +64,57 @@ def changedatafiles():
             im = fabio.open(frame)
             rawdata.append(im.data)
             omega.append(float(im.header["Omega"]))
-        # Remove background, if it is set
-        if (do_bg_action.isChecked()):
-            if (main_pars["bgfile"] != None):
-                print("Reading background from %s" % main_pars["bgfile"])
-                bgim = fabio.open(main_pars["bgfile"])
-                data = []
-                for frame in rawdata:
-                    data.append(frame.data-bgim.data)
-                sv.setStack(data)
-                on_frame_changed(0)
-            else:
-                sv.setStack(rawdata)
-                on_frame_changed(0)
+        rawdata = numpy.asarray(rawdata)
+        redraw_from_raw(0)
+
+def redraw_from_raw(selected_frame=0):
+    """
+    Redraw the dataset from the raw data
+    Applies flip matrix
+    Subtract background if necessary
+
+    Send frame to display, first frame by default
+    """
+    global main_pars, rawdata
+
+    # Flip image
+    datatmp = image_flipping(rawdata,main_pars["o11"],main_pars["o12"],main_pars["o21"],main_pars["o22"])
+    # Remove background, if it is set
+    if (do_bg_action.isChecked()):
+        if (main_pars["bgfile"] != None):
+            print("Reading background from %s" % main_pars["bgfile"])
+            bgim = fabio.open(main_pars["bgfile"])
+            fake_3d_bg = [bgim.data]
+            fake_3d_bg = numpy.asarray(fake_3d_bg)
+            fake_3d_bg = image_flipping(fake_3d_bg,main_pars["o11"],main_pars["o12"],main_pars["o21"],main_pars["o22"])
+            data = []
+            for frame in datatmp:
+                data.append(frame-fake_3d_bg[0,:])
+            sv.setStack(data)
+            sv.setFrameNumber(selected_frame)
+            on_frame_changed(selected_frame)
         else:
-            sv.setStack(rawdata)
-            # Force a replot
-            on_frame_changed(0)
+            sv.setStack(datatmp)
+            sv.setFrameNumber(selected_frame)
+            on_frame_changed(selected_frame)
+    else:
+        sv.setStack(datatmp)
+        # Force a replot
+        sv.setFrameNumber(selected_frame)
+        on_frame_changed(selected_frame)
+
+def set_OMatrix(o11,o12,o21,o22):
+    """
+    Force change the flip matrix and replot the dataset
+    """
+    global main_pars
+    global sv
+
+    main_pars["o11"] = o11
+    main_pars["o12"] = o12
+    main_pars["o21"] = o21
+    main_pars["o22"] = o22
+    redraw_from_raw(sv.getFrameNumber())
 
 def changepeakfile():
     """
@@ -94,6 +130,9 @@ def changepeakfile():
         readpeaks()
 
 def readpeaks():
+    """
+    Function to read peaks from a file
+    """
     global main_pars
     global peaks
     if (main_pars["peakfile"] != None):
@@ -156,21 +195,14 @@ def change_do_bg():
     """
     Called when the user selects a menu to change the peak circle radius
     """
-    global main_pars
+    global main_pars,sv
+
     if (do_bg_action.isChecked()):
         main_pars["subtractbg"] = True
-        if (main_pars["bgfile"] != None):
-            print("Reading background from %s" % main_pars["bgfile"])
-            bgim = fabio.open(main_pars["bgfile"])
-            data = []
-            for frame in rawdata:
-                data.append(frame.data-bgim.data)
-            sv.setStack(data)
-            on_frame_changed(sv.getFrameNumber())
+        redraw_from_raw(sv.getFrameNumber())
     else:
         main_pars["subtractbg"] = False
-        sv.setStack(rawdata)
-        on_frame_changed(sv.getFrameNumber())
+        redraw_from_raw(sv.getFrameNumber())
 
 def change_show_peaks():
     """
@@ -237,7 +269,7 @@ def on_frame_changed(frame_index):
         # Remove all "peaks" item
         plot_widget.remove(kind='curve')
 
-def image_flipping(img, o11, o12, o21, o22, flipdir='forward'):
+def image_flipping(data, o11, o12, o21, o22, flipdir='forward'):
     """
     Code copied from that of Fabian at https://github.com/FABLE-3DXRD/fabian/blob/master/Fabian/detector.py
     Call to this function from Fabian adds -1 in front of all components: https://github.com/FABLE-3DXRD/fabian/blob/master/Fabian/appWin.py#L1931
@@ -267,6 +299,17 @@ def image_flipping(img, o11, o12, o21, o22, flipdir='forward'):
     forward: raw image -> 3DXRD standard
     inverse: 3DXRD standard -> raw image
 
+    Since we are working with 3D data, axes 0 is the dataset number, then Y and Z directions on detector
+
+    # flipup for 3D data replaced with
+    # matrice_retournee = matrice[:,::-1, :]
+
+    # fliplr  for 3D data replaced with
+    # matrice_retournee = matrice[:, ::-1]
+
+    # transpose of 3D data replaced with
+    np.transpose(a, (0, 2, 1))
+
     """
 
     if abs(o11) == 1:
@@ -274,27 +317,33 @@ def image_flipping(img, o11, o12, o21, o22, flipdir='forward'):
             raise ValueError('detector orientation makes no sense 1')
 #        img = n.transpose(img) # to get A[i,j] be standard A[dety,detz]
         if o11 == -1:
-            img = n.flipud(img)
+            # img = n.flipud(img)
+            data = data[:,::-1,:]
         if o22 == -1:
-            img = n.fliplr(img)
-        return img
+            # img = n.fliplr(img)
+            data = data[:,:,::-1]
+        return data
     if abs(o12) == 1:
         if abs(o21) != 1 or (o11 != 0) or (o22 != 0):
             raise ValueError('detector orientation makes no sense 2')
         #transpose not needed since the matrix is transp from scratch
-        img = n.transpose(img) # make transpose
+        data = numpy.transpose(data, (0,2,1)) # make transpose
 
         if o12 == -1:
             if flipdir == 'forward':
-                img = n.flipud(img)
+                # img = n.flipud(img)
+                data = data[:,::-1,:]
             else:
-                img = n.fliplr(img)
+                #img = n.fliplr(img)
+                data = data[:,:,::-1]
         if o21 == -1:
             if flipdir == 'forward':
-                img = n.fliplr(img)
+                # img = n.fliplr(img)
+                data = data[:,:,::-1]
             else:
-                img = n.flipud(img)
-        return img
+                # img = n.flipud(img)
+                data = data[:,::-1,:]
+        return data
     raise ValueError('detector orientation makes no sense 3')
 
 def main(argv):
@@ -316,6 +365,10 @@ def main(argv):
     main_pars["peakcircleradius"] = 20
     main_pars["subtractbg"] = False
     main_pars["bgfile"] = None
+    main_pars["o11"] = 1
+    main_pars["o12"] = 0
+    main_pars["o21"] = 0
+    main_pars["o22"] = 1
 
     # Holds information on peaks (found with a peak search for instance)
     # Set when reading a peak file
@@ -365,12 +418,15 @@ def main(argv):
         im = fabio.open(frame)
         rawdata.append(im.data)
         omega.append(float(im.header["Omega"]))
+    rawdata = numpy.asarray(rawdata)
+    #print(rawdata.shape)
 
-    # Starting value for min and max intensity scale
+    # Starting value for min and max intensity scale, max is quite arbitrary. This should be improved when someone finds time.
     minv = 0
-    maxv = 10.*numpy.median(rawdata)
-    #print(numpy.median(rawdata), numpy.mean(rawdata), numpy.min(rawdata), numpy.max(rawdata))
+    maxv = max(30,10.*numpy.median(rawdata))
 
+    # Apply flipping matrix
+    data = image_flipping(rawdata,main_pars["o11"],main_pars["o12"],main_pars["o21"],main_pars["o22"])
 
     #for frame in series.frames():
     #    rawdata.append(frame.data)
@@ -378,7 +434,7 @@ def main(argv):
 
     # Prepare a GUI with a stackview from Silx
     sv = StackViewMainWindow()
-    sv.setStack(rawdata)
+    sv.setStack(data)
     sv.setColormap(normalization="arcsinh", vmin=minv, vmax=maxv)
     sv.setKeepDataAspectRatio(True)
     sv.setTitleCallback(omegaTitle) # Set a new title with the value of omega for each image
@@ -412,8 +468,58 @@ def main(argv):
     do_bg_action.triggered.connect(change_do_bg)
     custom_menu.addAction(do_bg_action)
     custom_menu.addSeparator()
-    file_orientation_menu = custom_menu.addMenu("Image orientation")
-    file_orientation_menu.setDisabled(True)
+
+    img_orientation_menu = custom_menu.addMenu("Image orientation")
+    img_orientation_menu.setDisabled(False)
+    # creating QAction Instances
+    orientation_action_1001 = qt.QAction("(1,0,0,1)", sv)
+    orientation_action_100m1 = qt.QAction("1,0,0,-1)", sv)
+    orientation_action_m1001 = qt.QAction("(-1,0,0,1)", sv)
+    orientation_action_m100m1 = qt.QAction("-1,0,0,-1)", sv)
+    orientation_action_0110 = qt.QAction("(0,1,1,0)", sv)
+    orientation_action_01m10 = qt.QAction("(0,1,-1,0)", sv)
+    orientation_action_0m110 = qt.QAction("(0,-1,1,0)", sv)
+    orientation_action_0m1m10 = qt.QAction("(0,-1,-1,0)", sv)
+    # making actions checkable
+    orientation_action_1001.setCheckable(True)
+    orientation_action_1001.setChecked(True)
+    orientation_action_100m1.setCheckable(True)
+    orientation_action_m1001.setCheckable(True)
+    orientation_action_m100m1.setCheckable(True)
+    orientation_action_0110.setCheckable(True)
+    orientation_action_01m10.setCheckable(True)
+    orientation_action_0m110.setCheckable(True)
+    orientation_action_0m1m10.setCheckable(True)
+    # adding these actions to the selection menu
+    img_orientation_menu.addAction(orientation_action_1001)
+    img_orientation_menu.addAction(orientation_action_100m1)
+    img_orientation_menu.addAction(orientation_action_m1001)
+    img_orientation_menu.addAction(orientation_action_m100m1)
+    img_orientation_menu.addAction(orientation_action_0110)
+    img_orientation_menu.addAction(orientation_action_01m10)
+    img_orientation_menu.addAction(orientation_action_0m110)
+    img_orientation_menu.addAction(orientation_action_0m1m10)
+    # creating a action group
+    action_group = qt.QActionGroup(sv)
+    # adding these action to the action group
+    action_group.addAction(orientation_action_1001)
+    action_group.addAction(orientation_action_100m1)
+    action_group.addAction(orientation_action_m1001)
+    action_group.addAction(orientation_action_m100m1)
+    action_group.addAction(orientation_action_0110)
+    action_group.addAction(orientation_action_01m10)
+    action_group.addAction(orientation_action_0m110)
+    action_group.addAction(orientation_action_0m1m10)
+    # Actions for each
+    orientation_action_1001.triggered.connect(lambda checked: set_OMatrix(1,0,0,1))
+    orientation_action_100m1.triggered.connect(lambda checked: set_OMatrix(1,0,0,-1))
+    orientation_action_m1001.triggered.connect(lambda checked: set_OMatrix(-1,0,0,1))
+    orientation_action_m100m1.triggered.connect(lambda checked: set_OMatrix(-1,0,0,-1))
+    orientation_action_0110.triggered.connect(lambda checked: set_OMatrix(0,1,1,0))
+    orientation_action_01m10.triggered.connect(lambda checked: set_OMatrix(0,1,-1,0))
+    orientation_action_0m110.triggered.connect(lambda checked: set_OMatrix(0,-1,1,0))
+    orientation_action_0m1m10.triggered.connect(lambda checked: set_OMatrix(0,-1,-1,0))
+
     # Add about menu item
     about_menu = menu_bar.addMenu("About...")
     about_action = qt.QAction("About the TIMEleSS data viewer...", sv)
