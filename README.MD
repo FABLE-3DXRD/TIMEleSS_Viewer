@@ -8,6 +8,8 @@ Simple application to view series of 3D-XRD data files
 
 Meant as replacement for the features we used in Fabian, which is getting old and should be phased out
 
+![Screenshot of the TIMEleSS Viewer main window.](https://github.com/FABLE-3DXRD/TIMEleSS_Viewer/blob/main/TIMEleSS_Viewer_MainWindow.png)
+
 Features (all accessible from the `3D-XRD extra` menu)
  - plot series of EDF files with omega values
  - overlay peaks from a peak search
