@@ -192,7 +192,10 @@ def changedatafiles():
         for frame in filenames:
             im = fabio.open(frame)
             rawdata.append(im.data)
-            omega.append(float(im.header["Omega"]))
+            if ("Omega" in im.header):
+                omega.append(float(im.header["Omega"]))
+            else:
+                omega.append(numpy.nan)
         rawdata = numpy.asarray(rawdata)
         if (main_pars["stackimages"]): # Remove the stack option if it is set. We just read a new list of files
             main_pars["stackimages"] = False
@@ -289,9 +292,9 @@ def readpeaks():
                     on_frame_changed(sv.getFrameNumber())
         else:
             msg = qt.QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
+            msg.setIcon(qt.QMessageBox.Critical)
             msg.setText("Error")
-            msg.setInformativeText("More file not found : %s" % main_pars["peakfile"])
+            msg.setInformativeText("File not found : %s" % main_pars["peakfile"])
             msg.setWindowTitle("Error")
             msg.exec_()
             print("Error : file not found : %s" % main_pars["peakfile"])
@@ -380,7 +383,7 @@ def omegaTitle(idx):
     Sends the frame number
     We set a title based on omega value
     """
-    return "w = %.2f" % omega[idx]
+    return "omega = %.2f degrees" % omega[idx]
 
 def on_frame_changed(frame_index):
     """
@@ -587,7 +590,10 @@ def main(argv):
     for frame in filenames:
         im = fabio.open(frame)
         rawdata.append(im.data)
-        omega.append(float(im.header["Omega"]))
+        if ("Omega" in im.header):
+            omega.append(float(im.header["Omega"]))
+        else:
+            omega.append(numpy.nan)
     rawdata = numpy.asarray(rawdata)
     #print(rawdata.shape)
 
