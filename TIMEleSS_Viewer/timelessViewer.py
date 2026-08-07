@@ -41,6 +41,82 @@ def showAboutWindow():
     if button == qt.QMessageBox.Ok:
         print("OK!")
 
+def stack_all_images():
+    """
+    Called when the user changes whether to stack all images or not
+
+    Reads data and calls for a replot
+    """
+    global do_stack_action
+    global main_pars, rawdata,omega
+
+    if (do_stack_action.isChecked()): # The user wants a stack, we do it here
+        main_pars["stackimages"] = True
+        # take the mean of all frames
+        datatmp = numpy.mean(rawdata, axis=0)
+        # subtractbg if needed
+        if (do_bg_action.isChecked() and (main_pars["bgfile"] != None)):
+            bgim = fabio.open(main_pars["bgfile"])
+            fake_3d = [datatmp-bgim.data]
+        else:
+            fake_3d = [datatmp]
+        # Apply flipping
+        fake_3d = numpy.asarray(fake_3d)
+        fake_3d = image_flipping(fake_3d,main_pars["o11"],main_pars["o12"],main_pars["o21"],main_pars["o22"])
+        # Set data
+        sv.setStack(fake_3d)
+        sv.setGraphTitle("Omega stack")
+        # Add peaks here (omega filtering is different than for single frames)
+        if (main_pars["show_peaks"] and peaks["set"]):
+            # Extract the underlying PlotWidget
+            plot_widget = sv.getPlotWidget()
+            # Remove all "peaks" item
+            plot_widget.remove(kind='curve')
+            # Add relevant peaks
+            omegamin = min(omega)
+            omegamax = max(omega)
+            # Need to apply the flip matrix to the peak position... Not sure on how to do that.
+            # Brutal a stupid solution
+            # Create an empy image, will set to 1 when there is a peak
+            [dim0, dim1, dim2] = rawdata.shape
+            peakpos = numpy.zeros([1,dim1,dim2],dtype=numpy.int8)
+            for peak in peaks["peakinfo"] :
+                if ((peak[peaks["Min_o"]] <= omegamax) and (omegamin <= peak[peaks["Max_o"]])):
+                    cy = numpy.rint(peak[peaks["detz"]]).astype(int)
+                    cx = numpy.rint(peak[peaks["dety"]]).astype(int)
+                    # print(cx,cy)
+                    peakpos[0,cx,cy] = 1
+            # Apply image flipping to locate the peaks on flipped images
+            peakpos = image_flipping(peakpos,main_pars["o11"],main_pars["o12"],main_pars["o21"],main_pars["o22"])
+            # Search peaks and plot a circle
+            drawpeaks = zip(*numpy.where(peakpos == 1))
+            # print(drawpeaks)
+            legendindex = 0
+            for p,cx,cy in drawpeaks:
+                # print(p,cx,cy)
+                # print("Found one at %d %d" % (cx, cy))
+                # Define geometry
+                t = numpy.linspace(0, 2 * numpy.pi, 200)
+                x = cy + main_pars["peakcircleradius"] * numpy.cos(t)
+                y = cx + main_pars["peakcircleradius"] * numpy.sin(t)
+                # Add via the native addCurve method
+                plot_widget.addCurve(
+                    x = x,
+                    y = y,
+                    color='red',
+                    legend = 'peak%d' % legendindex,
+                    linestyle='-',
+                    linewidth=1
+                )
+                legendindex += 1
+        else:
+            # Remove all "peaks" item
+            plot_widget = sv.getPlotWidget()
+            plot_widget.remove(kind='curve')
+    else: # The user does not want to stack images anymore, we redraw_from_raw
+        main_pars["stackimages"] = False
+        redraw_from_raw()
+
 
 def changedatafiles():
     """
@@ -49,6 +125,7 @@ def changedatafiles():
     Reads data and calls for a replot
     """
     global rawdata, omega
+    global do_stack_action
 
     filenames, _ = qt.QFileDialog.getOpenFileNames(
         None,
@@ -65,6 +142,9 @@ def changedatafiles():
             rawdata.append(im.data)
             omega.append(float(im.header["Omega"]))
         rawdata = numpy.asarray(rawdata)
+        if (main_pars["stackimages"]): # Remove the stack option if it is set. We just read a new list of files
+            main_pars["stackimages"] = False
+            do_stack_action.setChecked(False)
         redraw_from_raw(0)
 
 def redraw_from_raw(selected_frame=0):
@@ -150,8 +230,11 @@ def readpeaks():
             peaks["Max_o"] = header.index("Max_o")
             peaks["set"] = True
             if (main_pars["show_peaks"]):
-                # Force a replot
-                on_frame_changed(sv.getFrameNumber())
+                if (main_pars["stackimages"]): # If the user wants a stack, special function to replot
+                    stack_all_images()
+                else:
+                    # Force a replot
+                    on_frame_changed(sv.getFrameNumber())
         else:
             msg = qt.QMessageBox()
             msg.setIcon(QMessageBox.Critical)
@@ -174,7 +257,10 @@ def changepeakcircleradius():
     if (done):
         main_pars["peakcircleradius"] = roll
         # Force a replot
-        on_frame_changed(sv.getFrameNumber())
+        if (main_pars["stackimages"]): # If the user wants a stack, special function to replot
+            stack_all_images()
+        else:
+            on_frame_changed(sv.getFrameNumber())
 
 def changeBgFile():
     """
@@ -189,7 +275,10 @@ def changeBgFile():
         main_pars["bgfile"] = fileName
         print("Background will be read from %s" % main_pars["bgfile"])
         if (main_pars["subtractbg"] == True):
-            change_do_bg()
+            if (main_pars["stackimages"]): # If the user wants a stack, special function to replot
+                stack_all_images()
+            else:
+                change_do_bg()
 
 def change_do_bg():
     """
@@ -199,10 +288,16 @@ def change_do_bg():
 
     if (do_bg_action.isChecked()):
         main_pars["subtractbg"] = True
-        redraw_from_raw(sv.getFrameNumber())
+        if (main_pars["stackimages"]): # If the user wants a stack, special function to replot
+            stack_all_images()
+        else:
+            redraw_from_raw(sv.getFrameNumber())
     else:
         main_pars["subtractbg"] = False
-        redraw_from_raw(sv.getFrameNumber())
+        if (main_pars["stackimages"]): # If the user wants a stack, special function to replot
+            stack_all_images()
+        else:
+            redraw_from_raw(sv.getFrameNumber())
 
 def change_show_peaks():
     """
@@ -212,13 +307,19 @@ def change_show_peaks():
     if (do_show_peaks_action.isChecked()):
         main_pars["show_peaks"] = True
         # Force replot
-        on_frame_changed(sv.getFrameNumber())
+        if (main_pars["stackimages"]): # If the user wants a stack, special function to replot
+            stack_all_images()
+        else:
+            redraw_from_raw(sv.getFrameNumber())
         # print ("Show peaks")
     else:
         main_pars["show_peaks"] = False
         # print ("Do not show peaks")
         # Force replot
-        on_frame_changed(sv.getFrameNumber())
+        if (main_pars["stackimages"]): # If the user wants a stack, special function to replot
+            stack_all_images()
+        else:
+            redraw_from_raw(sv.getFrameNumber())
 
 
 def omegaTitle(idx):
@@ -370,7 +471,7 @@ def main(argv):
     # Global variables with parameters, peaks from peak search info, rawdata, and omega values
     global main_pars,peaks,rawdata,omega
     # Gui elements: main window, on/off menu items to check at other places
-    global sv, do_show_peaks_action, do_bg_action
+    global sv, do_show_peaks_action, do_bg_action, do_stack_action
 
     qapp = qt.QApplication(sys.argv[1:])
 
@@ -385,6 +486,7 @@ def main(argv):
     main_pars["o12"] = 0
     main_pars["o21"] = 0
     main_pars["o22"] = 1
+    main_pars["stackimages"] = False
 
     # Holds information on peaks (found with a peak search for instance)
     # Set when reading a peak file
@@ -535,6 +637,13 @@ def main(argv):
     orientation_action_01m10.triggered.connect(lambda checked: set_OMatrix(0,1,-1,0))
     orientation_action_0m110.triggered.connect(lambda checked: set_OMatrix(0,-1,1,0))
     orientation_action_0m1m10.triggered.connect(lambda checked: set_OMatrix(0,-1,-1,0))
+
+    custom_menu.addSeparator()
+    do_stack_action = qt.QAction("Stack all images", sv)
+    do_stack_action.setCheckable(True)
+    do_stack_action.setChecked(False)
+    do_stack_action.triggered.connect(stack_all_images)
+    custom_menu.addAction(do_stack_action)
 
     # Add about menu item
     about_menu = menu_bar.addMenu("About...")
