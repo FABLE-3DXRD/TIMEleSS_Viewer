@@ -8,13 +8,17 @@ Simple application to view series of 3D-XRD data files
 
 Meant as replacement for the features we used in Fabian, which is getting old and should be phased out
 
-Can
+Features (all accessible from the `3D-XRD extra` menu)
  - plot series of EDF files with omega values
  - overlay peaks from a peak search
  - subtract a background (from a median image, for instance)
+ - Play with image orientation and the flip matrix (O-matrix) options
+ - Stack all images
+ - Save a mean image
+ - Save a median image
 
-Image orientation remains to be implemented
-
+Could be updated to deal with HDF5 files. Will come at some point.
+ 
 Built on top of silx, from the Data Analysis Unit, European Synchrotron Radiation Facility, Grenoble
 
 TIMEleSS tools, and the strategy for processing multigrain diffraction data is fully described in an online manual at http://multigrain.texture.rocks/
