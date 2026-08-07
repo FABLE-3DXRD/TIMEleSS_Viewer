@@ -24,6 +24,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 """
 
 import fabio
+import fabio.edfimage
 import os
 import os.path
 import sys
@@ -40,6 +41,57 @@ def showAboutWindow():
     button = dlg.exec()
     if button == qt.QMessageBox.Ok:
         print("OK!")
+
+def save_mean():
+    """
+    The user wants to save a mean image, let's go for it
+    """
+    global rawdata
+    datatmp = numpy.mean(rawdata, axis=0)
+    im = fabio.edfimage.EdfImage(data=datatmp)
+    options = qt.QFileDialog.Options()
+    fileName, _ = qt.QFileDialog.getSaveFileName(None, "Name of mean image file", "", "EDF files (*.edf);;Tiff files (*.tif);;All files (*.*)", options=options)
+    if fileName:
+        test, file_extension = os.path.splitext(fileName)
+        file_extension =  file_extension.lower()
+        if ((file_extension == ".tif") or (file_extension == ".tiff")):
+            im.convert("tif").save(fileName)
+        elif (file_extension == ".edf"):
+            im.save(fileName)
+        else:
+            msg = qt.QMessageBox()
+            msg.setIcon(qt.QMessageBox.Critical)
+            msg.setText("Error")
+            msg.setInformativeText("File format not supported : %s" % file_extension)
+            msg.setWindowTitle("Error")
+            msg.exec_()
+            print("Error : file format not supported : %s" % file_extension)
+
+def save_median():
+    """
+    The user wants to save a median image, let's go for it
+    """
+    global rawdata
+    datatmp = numpy.median(rawdata, axis=0)
+    im = fabio.edfimage.EdfImage(data=datatmp)
+    options = qt.QFileDialog.Options()
+    fileName, _ = qt.QFileDialog.getSaveFileName(None, "Name of median image file", "", "EDF files (*.edf);;Tiff files (*.tif);;All files (*.*)", options=options)
+    if fileName:
+        test, file_extension = os.path.splitext(fileName)
+        file_extension =  file_extension.lower()
+        if ((file_extension == ".tif") or (file_extension == ".tiff")):
+            im.convert("tif").save(fileName)
+        elif (file_extension == ".edf"):
+            im.save(fileName)
+        else:
+            msg = qt.QMessageBox()
+            msg.setIcon(qt.QMessageBox.Critical)
+            msg.setText("Error")
+            msg.setInformativeText("File format not supported : %s" % file_extension)
+            msg.setWindowTitle("Error")
+            msg.exec_()
+            print("Error : file format not supported : %s" % file_extension)
+
 
 def stack_all_images():
     """
@@ -644,6 +696,15 @@ def main(argv):
     do_stack_action.setChecked(False)
     do_stack_action.triggered.connect(stack_all_images)
     custom_menu.addAction(do_stack_action)
+
+    custom_menu.addSeparator()
+    save_mean_action = qt.QAction("Save a mean image", sv)
+    save_mean_action.triggered.connect(save_mean)
+    custom_menu.addAction(save_mean_action)
+
+    save_median_action = qt.QAction("Save a median image", sv)
+    save_median_action.triggered.connect(save_median)
+    custom_menu.addAction(save_median_action)
 
     # Add about menu item
     about_menu = menu_bar.addMenu("About...")
