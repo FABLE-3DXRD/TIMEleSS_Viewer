@@ -10,6 +10,14 @@ Meant as replacement for the features we used in Fabian, which is getting old an
 
 ![Screenshot of the TIMEleSS Viewer main window.](https://github.com/FABLE-3DXRD/TIMEleSS_Viewer/blob/main/TIMEleSS_Viewer_MainWindow.png)
 
+<div align="center">
+    <img 
+        src="https://github.com/FABLE-3DXRD/TIMEleSS_Viewer/blob/main/TIMEleSS_Viewer_MainWindow.png"
+        onerror="this.onerror=null; this.src='https://github.com/FABLE-3DXRD/TIMEleSS_Viewer/blob/main/TIMEleSS_Viewer_MainWindow.png';" alt="Screenshot of the TIMEleSS Viewer main window." width=450
+    />
+</div>
+
+
 Features (all accessible from the `3D-XRD extra` menu)
  - plot series of EDF files with omega values
  - overlay peaks from a peak search
