@@ -31,6 +31,7 @@ import sys
 import numpy
 from silx.gui.plot.StackView import StackViewMainWindow
 from silx.gui import qt  # Import Qt binding and do some set-up
+# import silx.gui.qt.Qt  # Import Qt binding and do some set-up
 from silx.gui.plot.items.roi import CircleROI
 
 def showAboutWindow():
@@ -256,12 +257,14 @@ def changepeakfile():
     Called when the user selects a menu to change the peak file
     """
     global main_pars
+    global qeditpeaks
     print ("The user was to change the peak file")
 
     options = qt.QFileDialog.Options()
     fileName, _ = qt.QFileDialog.getOpenFileName(None, "Open a peak file", "", "FLT files (*.flt);;All files (*.*)", options=options)
     if fileName:
         main_pars["peakfile"] = fileName
+        qeditpeaks.setText(os.path.split(main_pars["peakfile"])[1])
         readpeaks()
 
 def readpeaks():
@@ -322,6 +325,7 @@ def changeBgFile():
     Called when the user selects a menu to change the peak file
     """
     global main_pars
+    global qeditbg
     print ("The user was to change the background file")
 
     options = qt.QFileDialog.Options()
@@ -329,6 +333,7 @@ def changeBgFile():
     if fileName:
         main_pars["bgfile"] = fileName
         print("Background will be read from %s" % main_pars["bgfile"])
+        qeditbg.setText(os.path.split(main_pars["bgfile"])[1])
         if (main_pars["subtractbg"] == True):
             if (main_pars["stackimages"]): # If the user wants a stack, special function to replot
                 stack_all_images()
@@ -518,6 +523,19 @@ def image_flipping(data, o11, o12, o21, o22, flipdir='forward'):
         return data
     raise ValueError('detector orientation makes no sense 3')
 
+class ClickableLineEdit(qt.QLineEdit):
+    """
+    Custom line edit with a mouse clicked event
+    Took from the web
+    https://stackoverflow.com/questions/25560748/add-a-click-on-qlineedit
+    """
+    clicked = qt.pyqtSignal() # signal when the text entry is left clicked
+
+    def mousePressEvent(self, event):
+        if event.button() == qt.Qt.LeftButton: self.clicked.emit()
+        else: super().mousePressEvent(event)
+
+
 def main(argv):
     """
     Main subroutine
@@ -526,7 +544,7 @@ def main(argv):
     # Global variables with parameters, peaks from peak search info, rawdata, and omega values
     global main_pars,peaks,rawdata,omega
     # Gui elements: main window, on/off menu items to check at other places
-    global sv, do_show_peaks_action, do_bg_action, do_stack_action
+    global sv, do_show_peaks_action, do_bg_action, do_stack_action, qeditbg, qeditpeaks
 
     qapp = qt.QApplication(sys.argv[1:])
 
@@ -721,6 +739,39 @@ def main(argv):
     # Have plot orientation identical to that of Fabian
     sv.getPlotWidget().setYAxisInverted(False)
     sv.getPlotWidget().setXAxisInverted(True)
+
+    # Add labels to inform user of peak and background files
+    svwidget = sv.centralWidget()
+    svlayout = svwidget.layout()
+
+    gridLayout = qt.QGridLayout()
+    gridLayout.setSpacing(5)
+    gridLayout.setContentsMargins(0, 0, 0, 0)
+    qlabel1 = qt.QLabel(sv)
+    qlabel1.setText("Background file : ")
+    gridLayout.addWidget(qlabel1, 0, 0)
+    qlabel2 = qt.QLabel(sv)
+    qlabel2.setText("Peak file : ")
+    gridLayout.addWidget(qlabel2, 0, 2)
+    qeditbg = ClickableLineEdit(sv)
+    qeditbg.setText("None")
+    qeditbg.setReadOnly(True)
+    qeditbg.clicked.connect(changeBgFile)
+    gridLayout.addWidget(qeditbg, 0, 1)
+    # bgApplied = qt.QCheckBox("Applied", sv)
+    # bgApplied.stateChanged.connect(change_do_bg)
+    # gridLayout.addWidget(bgApplied, 0, 2)
+    qeditpeaks = ClickableLineEdit(sv)
+    qeditpeaks.setText("None")
+    qeditpeaks.setReadOnly(True)
+    qeditpeaks.clicked.connect(changepeakfile)
+    gridLayout.addWidget(qeditpeaks, 0, 3)
+    # showPeaks = qt.QCheckBox("Show peaks", sv)
+    # showPeaks.stateChanged.connect(change_show_peaks)
+    # gridLayout.addWidget(showPeaks, 1, 2)
+    gridLayout.setColumnStretch(1, 2)
+    gridLayout.setColumnStretch(3, 2)
+    svlayout.addLayout(gridLayout,svlayout.rowCount(),-1)
 
     # Plot!
     sv.show()
