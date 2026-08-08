@@ -157,6 +157,8 @@ class timelessViewer(StackViewMainWindow):
         self.main_pars["show_peaks"] = False
         self.main_pars["peakfile"] = None
         self.main_pars["peakcircleradius"] = 20
+        self.main_pars["npeaks"] = numpy.nan
+        self.main_pars["nmaxplotpeaks"] = 600 # Maximum number of peaks to plot in one image
         self.main_pars["subtractbg"] = False
         self.main_pars["bgfile"] = None
         self.main_pars["o11"] = 1   # Flip- or O-matrix
@@ -412,11 +414,11 @@ class timelessViewer(StackViewMainWindow):
                 cx = numpy.rint(peak[self.peaks["dety"]]).astype(int)
                 peakpos[0,cx,cy] = 1
                 npeaks += 1
-        if (npeaks > 1000):
+        if (npeaks > self.main_pars["nmaxplotpeaks"]):
             dlg =  qt.QMessageBox(self.sv)
             dlg.setWindowTitle("Lots's of peaks")
             dlg.setIcon(qt.QMessageBox.Warning)
-            dlg.setText("%d peaks: plotting peaks is disabled over 1000 peaks. " % npeaks)
+            dlg.setText("%d peaks: plotting peaks is disabled over %d peaks. " % (npeaks,self.main_pars["nmaxplotpeaks"]))
             button = dlg.exec()
             self.do_show_peaks_action.setChecked(False)
             return
@@ -692,7 +694,8 @@ TIMEleSS-tools and the TIMEleSS data viewer are open-source, under the terms of 
                     return False
                 self.peaks["set"] = True
                 self.main_pars["peakfile"] = filename
-                self.qeditpeaks.setText(os.path.split(filename)[1])
+                self.main_pars["npeaks"] = (self.peaks["peakinfo"]).shape[0]
+                self.qeditpeaks.setText("%s, %d peaks" % (os.path.split(filename)[1], self.main_pars["npeaks"]))
                 if (self.peaks["peakinfo"].shape[0] > 10000):
                     dlg =  qt.QMessageBox(self.sv)
                     dlg.setWindowTitle("Lots's of peaks")
