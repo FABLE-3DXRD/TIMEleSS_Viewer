@@ -385,6 +385,64 @@ class timelessViewer(StackViewMainWindow):
         else:
             return "No omega defined"
 
+    def add_peaks_to_plot(self, o_min,o_max):
+        """
+        Function to add peaks to the plot
+
+        @param: o_min float starting omega value
+        @param: o_max float end omega value
+
+        Send identical omega values for a single frame
+        """
+
+        # Extract the underlying PlotWidget
+        plot_widget = self.sv.getPlotWidget()
+        # Remove all "peaks" item
+        plot_widget.remove(kind='curve')
+        # Add relevant peaks
+        # Need to apply the flip matrix to the peak position... Not sure on how to do that.
+        # Brutal a stupid solution
+        # Create an empy image, will set to 1 when there is a peak
+        [dim0, dim1, dim2] = self.rawdata.shape
+        peakpos = numpy.zeros([1,dim1,dim2],dtype=numpy.int8)
+        npeaks = 0
+        for peak in self.peaks["peakinfo"] :
+            if ((peak[self.peaks["Min_o"]] <= o_max) and (o_min <= peak[self.peaks["Max_o"]])):
+                cy = numpy.rint(peak[self.peaks["detz"]]).astype(int)
+                cx = numpy.rint(peak[self.peaks["dety"]]).astype(int)
+                peakpos[0,cx,cy] = 1
+                npeaks += 1
+        if (npeaks > 1000):
+            dlg =  qt.QMessageBox(self.sv)
+            dlg.setWindowTitle("Lots's of peaks")
+            dlg.setIcon(qt.QMessageBox.Warning)
+            dlg.setText("%d peaks: plotting peaks is disabled over 1000 peaks. " % npeaks)
+            button = dlg.exec()
+            self.do_show_peaks_action.setChecked(False)
+            return
+        # Apply image flipping to locate the peaks on flipped images
+        peakpos = image_flipping(peakpos,self.main_pars["o11"],self.main_pars["o12"],self.main_pars["o21"],self.main_pars["o22"])
+        # Search peaks and plot a circle
+        drawpeaks = zip(*numpy.where(peakpos == 1))
+        # print(drawpeaks)
+        legendindex = 0
+        for p,cx,cy in drawpeaks:
+            # print(p,cx,cy)
+            # print("Found one at %d %d" % (cx, cy))
+            # Define geometry
+            t = numpy.linspace(0, 2 * numpy.pi, 200)
+            x = cy + self.main_pars["peakcircleradius"] * numpy.cos(t)
+            y = cx + self.main_pars["peakcircleradius"] * numpy.sin(t)
+            # Add via the native addCurve method
+            plot_widget.addCurve(
+                x = x,
+                y = y,
+                color='red',
+                legend = 'peak%d' % legendindex,
+                linestyle='-',
+                linewidth=1
+            )
+            legendindex += 1
 
     def on_frame_changed(self,frame_index):
         """
@@ -400,6 +458,9 @@ class timelessViewer(StackViewMainWindow):
         plot_widget = self.sv.getPlotWidget()
         # If we need to add peaks, do so
         if (self.main_pars["show_peaks"] and self.peaks["set"]):
+            self.add_peaks_to_plot(self.omega[frame_index], self.omega[frame_index])
+            return
+
             # Remove all "peaks" item
             plot_widget.remove(kind='curve')
             # Add relevant peaks, at the omega value we are at
@@ -771,57 +832,9 @@ TIMEleSS-tools and the TIMEleSS data viewer are open-source, under the terms of 
             self.sv.setGraphTitle("Omega stack")
             # Add peaks here (omega filtering is different than for single frames)
             if (self.main_pars["show_peaks"] and self.peaks["set"]):
-                # Extract the underlying PlotWidget
-                plot_widget = self.sv.getPlotWidget()
-                # Remove all "peaks" item
-                plot_widget.remove(kind='curve')
-                # Add relevant peaks
                 omegamin = min(self.omega)
                 omegamax = max(self.omega)
-                # Need to apply the flip matrix to the peak position... Not sure on how to do that.
-                # Brutal a stupid solution
-                # Create an empy image, will set to 1 when there is a peak
-                [dim0, dim1, dim2] = self.rawdata.shape
-                peakpos = numpy.zeros([1,dim1,dim2],dtype=numpy.int8)
-                npeaks = 0
-                for peak in self.peaks["peakinfo"] :
-                    if ((peak[self.peaks["Min_o"]] <= omegamax) and (omegamin <= peak[self.peaks["Max_o"]])):
-                        cy = numpy.rint(peak[self.peaks["detz"]]).astype(int)
-                        cx = numpy.rint(peak[self.peaks["dety"]]).astype(int)
-                        # print(cx,cy)
-                        peakpos[0,cx,cy] = 1
-                        npeaks += 1
-                if (npeaks > 1000):
-                    dlg =  qt.QMessageBox(self.sv)
-                    dlg.setWindowTitle("Lots's of peaks")
-                    dlg.setIcon(qt.QMessageBox.Warning)
-                    dlg.setText("%d peaks: plotting peaks is disabled over 1000 peaks in a stacked image. " % npeaks)
-                    button = dlg.exec()
-                    self.do_show_peaks_action.setChecked(False)
-                    return
-                # Apply image flipping to locate the peaks on flipped images
-                peakpos = image_flipping(peakpos,self.main_pars["o11"],self.main_pars["o12"],self.main_pars["o21"],self.main_pars["o22"])
-                # Search peaks and plot a circle
-                drawpeaks = zip(*numpy.where(peakpos == 1))
-                # print(drawpeaks)
-                legendindex = 0
-                for p,cx,cy in drawpeaks:
-                    # print(p,cx,cy)
-                    # print("Found one at %d %d" % (cx, cy))
-                    # Define geometry
-                    t = numpy.linspace(0, 2 * numpy.pi, 200)
-                    x = cy + self.main_pars["peakcircleradius"] * numpy.cos(t)
-                    y = cx + self.main_pars["peakcircleradius"] * numpy.sin(t)
-                    # Add via the native addCurve method
-                    plot_widget.addCurve(
-                        x = x,
-                        y = y,
-                        color='red',
-                        legend = 'peak%d' % legendindex,
-                        linestyle='-',
-                        linewidth=1
-                    )
-                    legendindex += 1
+                self.add_peaks_to_plot(omegamin,omegamax)
             else:
                 # Remove all "peaks" item
                 plot_widget = self.sv.getPlotWidget()
